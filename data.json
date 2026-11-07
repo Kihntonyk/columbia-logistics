@@ -1,0 +1,26 @@
+[
+  {
+    "itemID": 101,
+    "name": "Shipping Labels",
+    "stockCount": 12,
+    "shelfLocation": "A1"
+  },
+  {
+    "itemID": 102,
+    "name": "Packing Tape",
+    "stockCount": 1,
+    "shelfLocation": "B2"
+  },
+  {
+    "itemID": 103,
+    "name": "Bubble Wrap",
+    "stockCount": 5,
+    "shelfLocation": "C3"
+  },
+  {
+    "itemID": 104,
+    "name": "Cardboard Boxes",
+    "stockCount": 2,
+    "shelfLocation": "D4"
+  }
+]

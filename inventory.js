@@ -1,71 +1,86 @@
-const fs = require("fs");
 const path = require("path");
+const Database = require("better-sqlite3");
 
-const dataFilePath = path.join(__dirname, "data.json");
+const dbPath = path.join(__dirname, "warehouse.db");
+const db = new Database(dbPath);
 
-let inventory;
+// Turn on foreign key enforcement (Mandatory for SQLite)
+db.pragma("foreign_keys = ON");
 
-try {
-  const fileContents = fs.readFileSync(dataFilePath, "utf8");
-  inventory = JSON.parse(fileContents);
+function checkLowStock() {
+  let lowStockItems;
 
-  if (!Array.isArray(inventory)) {
-    throw new Error("data.json must contain a JSON array of inventory items");
-  }
-} catch (error) {
-  console.error(`Error: Failed to read inventory from data.json. ${error.message}`);
-  process.exit(1);
-}
-
-function saveInventory() {
   try {
-    const jsonText = JSON.stringify(inventory, null, 2);
-    fs.writeFileSync(dataFilePath, `${jsonText}\n`, "utf8");
+    lowStockItems = db
+      .prepare(
+        `
+      SELECT
+        inventory.item_id,
+        inventory.item_name,
+        inventory.stock_count,
+        inventory.shelf_location,
+        suppliers.supplier_name
+      FROM inventory
+      INNER JOIN suppliers
+        ON inventory.supplier_id = suppliers.supplier_id
+      WHERE inventory.stock_count < 5
+    `,
+      )
+      .all();
   } catch (error) {
-    console.error(`Error: Failed to save inventory to data.json. ${error.message}`);
+    console.error(`Error: Failed to check low stock levels. ${error.message}`);
+    return;
+  }
+
+  for (const item of lowStockItems) {
+    console.warn(
+      `Low stock: ${item.item_name} (ID ${item.item_id}) has ${item.stock_count} left at ${item.shelf_location} (supplier: ${item.supplier_name})`,
+    );
   }
 }
 
 function processOrder(itemID, quantity) {
-  let foundItem = null;
+  try {
+    const item = db
+      .prepare(
+        `
+      SELECT item_name, stock_count
+      FROM inventory
+      WHERE item_id = ?
+    `,
+      )
+      .get(itemID);
 
-  for (const item of inventory) {
-    if (item.itemID === itemID) {
-      foundItem = item;
-      break;
+    if (!item) {
+      console.error(`Error: No item found with ID ${itemID}`);
+      return false;
     }
-  }
 
-  if (!foundItem) {
-    console.error(`Error: No item found with ID ${itemID}`);
-    return;
-  }
-
-  if (quantity > foundItem.stockCount) {
-    console.error(
-      `Error: Insufficient stock for ${foundItem.name}. Only ${foundItem.stockCount} left.`
-    );
-    return;
-  }
-
-  foundItem.stockCount -= quantity;
-  saveInventory();
-  const itemName =
-    quantity === 1 || foundItem.name.endsWith("s")
-      ? foundItem.name
-      : `${foundItem.name}s`;
-  console.log(`Processed order for ${quantity} ${itemName}`);
-}
-
-function checkLowStock() {
-  for (const item of inventory) {
-    if (item.stockCount < 5) {
-      console.warn(
-        `Low stock: ${item.name} (ID ${item.itemID}) has ${item.stockCount} left at ${item.shelfLocation}`
+    if (quantity > item.stock_count) {
+      console.error(
+        `Error: Insufficient stock for ${item.item_name}. Only ${item.stock_count} left.`,
       );
+      return false;
     }
+
+    db.prepare(
+      `
+      UPDATE inventory
+      SET stock_count = stock_count - ?
+      WHERE item_id = ?
+    `,
+    ).run(quantity, itemID);
+  } catch (error) {
+    console.error(
+      `Error: Database failure while processing order for item ${itemID}. ${error.message}`,
+    );
+    return false;
   }
+
+  checkLowStock();
+  return true;
 }
 
 processOrder(103, 3);
-checkLowStock
+
+db.close();

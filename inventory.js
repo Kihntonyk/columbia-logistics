@@ -4,7 +4,6 @@ const Database = require("better-sqlite3");
 const dbPath = path.join(__dirname, "warehouse.db");
 const db = new Database(dbPath);
 
-// Turn on foreign key enforcement (Mandatory for SQLite)
 db.pragma("foreign_keys = ON");
 
 function checkLowStock() {

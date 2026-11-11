@@ -39,12 +39,12 @@ const insertItem = db.prepare(`
 const seed = db.transaction(() => {
   const labelSupplyId = insertSupplier.run(
     "Columbia Label Supply",
-    "212-555-0141"
+    "212-555-0141",
   ).lastInsertRowid;
 
   const packingSupplyId = insertSupplier.run(
     "Hudson Packing Co.",
-    "212-555-0198"
+    "212-555-0198",
   ).lastInsertRowid;
 
   insertItem.run(101, "Shipping Labels", 12, "A1", labelSupplyId);

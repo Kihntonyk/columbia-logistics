@@ -9,6 +9,7 @@ db.pragma("foreign_keys = ON");
 
 // --- Schema ---
 db.exec(`
+  DROP TABLE IF EXISTS transactions;
   DROP TABLE IF EXISTS inventory;
   DROP TABLE IF EXISTS suppliers;
 
@@ -25,6 +26,15 @@ db.exec(`
     shelf_location TEXT,
     supplier_id INTEGER,
     FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id)
+  );
+
+  CREATE TABLE transactions (
+    transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('ORDER', 'RESTOCK')),
+    quantity INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES inventory(item_id)
   );
 `);
 
@@ -66,5 +76,6 @@ const inventory = db.prepare("SELECT * FROM inventory").all();
 console.log(`Seeded ${dbPath}`);
 console.log("Suppliers:", suppliers);
 console.log("Inventory:", inventory);
+console.log("Transactions table ready (empty).");
 
 db.close();

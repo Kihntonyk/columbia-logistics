@@ -1,11 +1,13 @@
 const path = require("path");
 const Database = require("better-sqlite3");
 
+// --- Database connection ---
 const dbPath = path.join(__dirname, "warehouse.db");
 const db = new Database(dbPath);
 
 db.pragma("foreign_keys = ON");
 
+// --- Schema ---
 db.exec(`
   DROP TABLE IF EXISTS inventory;
   DROP TABLE IF EXISTS suppliers;
@@ -26,6 +28,7 @@ db.exec(`
   );
 `);
 
+// --- Prepared inserts ---
 const insertSupplier = db.prepare(`
   INSERT INTO suppliers (supplier_name, contact_phone)
   VALUES (?, ?)
@@ -36,6 +39,7 @@ const insertItem = db.prepare(`
   VALUES (?, ?, ?, ?, ?)
 `);
 
+// --- Seed data ---
 const seed = db.transaction(() => {
   const labelSupplyId = insertSupplier.run(
     "Columbia Label Supply",
@@ -55,6 +59,7 @@ const seed = db.transaction(() => {
 
 seed();
 
+// --- Verification output ---
 const suppliers = db.prepare("SELECT * FROM suppliers").all();
 const inventory = db.prepare("SELECT * FROM inventory").all();
 

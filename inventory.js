@@ -1,11 +1,13 @@
 const path = require("path");
 const Database = require("better-sqlite3");
 
+// --- Database connection ---
 const dbPath = path.join(__dirname, "warehouse.db");
 const db = new Database(dbPath);
 
 db.pragma("foreign_keys = ON");
 
+// --- Low-stock report ---
 function checkLowStock() {
   let lowStockItems;
 
@@ -38,8 +40,10 @@ function checkLowStock() {
   }
 }
 
+// --- Order processing ---
 function processOrder(itemID, quantity) {
   try {
+    // Look up the item to validate the order before changing anything.
     const item = db
       .prepare(
         `

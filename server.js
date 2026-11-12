@@ -23,8 +23,30 @@ try {
 const app = express();
 app.use(express.json());
 
-app.get("/", (_req, res) => {
-  res.send("Warehouse API Online");
+// Serves the dashboard (public/index.html) at "/". Resolved from __dirname so it
+// works no matter which directory the server is started from.
+app.use(express.static(path.join(__dirname, "public")));
+
+const allInventoryQuery = db.prepare(`
+  SELECT
+    inventory.item_id,
+    inventory.item_name,
+    inventory.stock_count,
+    inventory.shelf_location,
+    suppliers.supplier_name
+  FROM inventory
+  INNER JOIN suppliers ON inventory.supplier_id = suppliers.supplier_id
+  ORDER BY inventory.item_id
+`);
+
+app.get("/api/inventory", (_req, res) => {
+  try {
+    const items = allInventoryQuery.all();
+    res.json(items);
+  } catch (error) {
+    console.error(`Error: Failed to fetch inventory. ${error.message}`);
+    res.status(500).json({ error: "Failed to fetch inventory" });
+  }
 });
 
 const lowStockQuery = db.prepare(`

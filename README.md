@@ -131,6 +131,18 @@ Example: an order that asks for more stock than is available.
 
 5. **Open the dashboard** at **http://localhost:3000**.
 
+### Updating an existing copy
+
+The dashboard used to load Tailwind from a CDN. It now uses a stylesheet, `public/styles.css`, that is built locally and isn't committed. If you cloned the project before this change, run these after you pull:
+
+```bash
+git pull
+npm install   # installs the Tailwind CLI
+npm start     # builds public/styles.css, then starts the server
+```
+
+Start the server with `npm start` from now on, not `node server.js`. Running `node server.js` on its own skips the CSS build, so on a fresh pull the stylesheet is missing and the dashboard loads with no styling. To keep using `node server.js`, run `npm run build:css` first.
+
 ### Working on the dashboard styles
 
 The dashboard's CSS is generated from the Tailwind classes used in `public/index.html`, so a class you add has no effect until the stylesheet is rebuilt. While you edit, leave the watcher running in a second terminal:

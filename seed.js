@@ -1,23 +1,14 @@
 const path = require("path");
 const Database = require("better-sqlite3");
 
-// Drops and recreates all tables on the given connection, then inserts the
-// sample suppliers and inventory. Exported so server.js can initialize an
-// in-memory database (DB_PATH=":memory:") for tests.
-function seedDatabase(db) {
-  // --- Schema ---
-  db.exec(`
-  DROP TABLE IF EXISTS transactions;
-  DROP TABLE IF EXISTS inventory;
-  DROP TABLE IF EXISTS suppliers;
-
-  CREATE TABLE suppliers (
+const SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS suppliers (
     supplier_id INTEGER PRIMARY KEY AUTOINCREMENT,
     supplier_name TEXT,
     contact_phone TEXT
   );
 
-  CREATE TABLE inventory (
+  CREATE TABLE IF NOT EXISTS inventory (
     item_id INTEGER PRIMARY KEY AUTOINCREMENT,
     item_name TEXT,
     stock_count INTEGER,
@@ -26,7 +17,7 @@ function seedDatabase(db) {
     FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id)
   );
 
-  CREATE TABLE transactions (
+  CREATE TABLE IF NOT EXISTS transactions (
     transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
     item_id INTEGER NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('ORDER', 'RESTOCK')),
@@ -34,9 +25,10 @@ function seedDatabase(db) {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (item_id) REFERENCES inventory(item_id)
   );
-`);
+`;
 
-  // --- Prepared inserts ---
+// Inserts the sample suppliers and inventory in one transaction.
+function insertSampleData(db) {
   const insertSupplier = db.prepare(`
     INSERT INTO suppliers (supplier_name, contact_phone)
     VALUES (?, ?)
@@ -47,7 +39,6 @@ function seedDatabase(db) {
     VALUES (?, ?, ?, ?, ?)
   `);
 
-  // --- Seed data ---
   const seed = db.transaction(() => {
     const labelSupplyId = insertSupplier.run(
       "Columbia Label Supply",
@@ -68,7 +59,30 @@ function seedDatabase(db) {
   seed();
 }
 
-module.exports = { seedDatabase };
+// Non-destructive startup setup used by server.js: creates any missing tables
+// and loads the sample data only if the suppliers table is empty. Existing
+// data is never touched. Returns true if sample data was inserted.
+function initializeDatabase(db) {
+  db.exec(SCHEMA_SQL);
+  const { count } = db.prepare("SELECT COUNT(*) AS count FROM suppliers").get();
+  if (count > 0) return false;
+  insertSampleData(db);
+  return true;
+}
+
+// Destructive reset used by `node seed.js`: drops all tables, recreates them
+// and reloads the sample data.
+function seedDatabase(db) {
+  db.exec(`
+    DROP TABLE IF EXISTS transactions;
+    DROP TABLE IF EXISTS inventory;
+    DROP TABLE IF EXISTS suppliers;
+  `);
+  db.exec(SCHEMA_SQL);
+  insertSampleData(db);
+}
+
+module.exports = { seedDatabase, initializeDatabase };
 
 // --- CLI entry point: `node seed.js` reseeds warehouse.db ---
 if (require.main === module) {

@@ -137,7 +137,7 @@ ANTHROPIC_API_KEY=your-key npm start
 
 ## Local Setup & Installation
 
-**Requirements:** [Node.js](https://nodejs.org/) 22 or newer, and Git. Port 3000 must be free.
+**Requirements:** [Node.js](https://nodejs.org/) 22 or newer, and Git. Port 3000 must be free, or set `PORT` to use another one (e.g. `PORT=8080 npm start`).
 
 1. **Clone the repository**
    ```bash
@@ -150,18 +150,15 @@ ANTHROPIC_API_KEY=your-key npm start
    npm install
    ```
 
-3. **Create and seed the database.** This creates `warehouse.db` with sample suppliers and inventory.
-   ```bash
-   node seed.js
-   ```
-   Running it again resets the database to the sample data and clears the transaction history.
-
-4. **Start the server.** This builds the stylesheet (`public/styles.css`) first, then starts the server.
+3. **Start the server.** This builds the stylesheet (`public/styles.css`) first, then starts the server.
    ```bash
    npm start
    ```
+   On startup the server creates `warehouse.db` and any missing tables, and loads the sample suppliers and inventory if the `suppliers` table is empty. Existing data is never changed, so a fresh cloud deployment (e.g. Render) is ready to use straight away.
 
-5. **Open the dashboard** at **http://localhost:3000**.
+   To reset the database to the sample data and clear the transaction history, stop the server and run `node seed.js`.
+
+4. **Open the dashboard** at **http://localhost:3000**.
 
 ### Updating an existing copy
 
@@ -209,7 +206,7 @@ The integration tests in `server.test.js` use Node's built-in test runner (`node
 npm test
 ```
 
-You don't need to run `node seed.js` or stop a running server first. The tests set `DB_PATH=":memory:"` before loading `server.js`, so each run gets its own fresh in-memory SQLite database seeded by `seedDatabase()` from `seed.js`. Your `warehouse.db` is never read or changed. The test server listens on a port the OS picks, so it doesn't clash with a dev server on port 3000.
+You don't need to run `node seed.js` or stop a running server first. The tests set `DB_PATH=":memory:"` before loading `server.js`, so each run gets its own fresh in-memory SQLite database seeded by `initializeDatabase()` from `seed.js`. Your `warehouse.db` is never read or changed. The test server listens on a port the OS picks, so it doesn't clash with a dev server on port 3000.
 
 The suite covers:
 
@@ -226,7 +223,7 @@ The suite covers:
 ```
 columbia-logistics/
 ├── server.js          Express REST API and static file server
-├── seed.js            Creates the database schema and loads sample data
+├── seed.js            Database schema and sample data; `node seed.js` resets warehouse.db
 ├── inventory.js       Standalone command-line script: processes one order and prints low-stock warnings
 ├── public/
 │   ├── index.html     Dashboard page (HTML structure, styled with Tailwind CSS)
@@ -243,5 +240,5 @@ columbia-logistics/
 │   └── input.css      Tailwind source stylesheet (@tailwind directives)
 ├── tailwind.config.js Tailwind configuration: which files to scan for class names
 ├── package.json
-└── warehouse.db       SQLite database (created by seed.js, not committed)
+└── warehouse.db       SQLite database (created automatically on first start, not committed)
 ```

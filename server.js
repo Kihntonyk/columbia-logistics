@@ -1,48 +1,28 @@
 const path = require("path");
 const express = require("express");
 const Database = require("better-sqlite3");
-const { seedDatabase } = require("./seed");
+const { initializeDatabase } = require("./seed");
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 // DB_PATH lets tests point the server at a throwaway database (e.g. ":memory:").
 const dbPath = process.env.DB_PATH || path.join(__dirname, "warehouse.db");
-const isInMemory = dbPath === ":memory:";
 
-// --- Database connection ---
+// --- Database connection and setup ---
+// Creates warehouse.db if it doesn't exist, creates any missing tables, and
+// loads the sample suppliers and inventory when the suppliers table is empty.
+// A fresh deployment (or an in-memory test DB) is ready without running seed.js.
 let db;
 try {
-  // fileMustExist prevents silently creating an empty DB if seed.js hasn't been
-  // run. It doesn't apply to an in-memory DB, which always starts empty.
-  db = new Database(dbPath, { fileMustExist: !isInMemory });
+  db = new Database(dbPath);
   db.pragma("foreign_keys = ON");
-  // An in-memory DB has no tables yet, so create and seed them here.
-  if (isInMemory) seedDatabase(db);
-  console.log(`Connected to SQLite database at ${dbPath}`);
+  const seeded = initializeDatabase(db);
+  console.log(
+    `Connected to SQLite database at ${dbPath}${seeded ? " (loaded sample data)" : ""}`,
+  );
 } catch (error) {
   console.error(
-    `Error: Failed to connect to warehouse database. ${error.message}`,
+    `Error: Failed to initialize warehouse database. ${error.message}`,
   );
-  process.exit(1);
-}
-
-// --- Schema migration ---
-// Databases seeded before the transactions table existed get it created here.
-try {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS transactions (
-      transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      item_id INTEGER NOT NULL,
-      type TEXT NOT NULL CHECK (type IN ('ORDER', 'RESTOCK')),
-      quantity INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (item_id) REFERENCES inventory(item_id)
-    );
-  `);
-} catch (error) {
-  console.error(
-    `Error: Failed to ensure transactions table exists. ${error.message}`,
-  );
-  db.close();
   process.exit(1);
 }
 
@@ -561,7 +541,7 @@ module.exports = { app, db };
 
 // --- Listener ---
 // Only listen when run directly (`node server.js`). When required by tests,
-// the caller starts its own listener, so port 3000 is never claimed.
+// the caller starts its own listener, so PORT is never claimed.
 if (require.main === module) {
   let server;
   try {

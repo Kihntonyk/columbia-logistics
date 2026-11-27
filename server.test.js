@@ -192,3 +192,18 @@ test("POST /api/ai-dispatch rejects an unparseable note with 400 and changes not
   );
   assert.equal(countTransactions(), transactionsBefore);
 });
+
+test("GET /api/health returns 200 with status ok", async () => {
+  const res = await fetch(`${baseUrl}/api/health`);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { status: "ok" });
+});
+
+test("GET / serves the dashboard page", async () => {
+  const res = await fetch(`${baseUrl}/`);
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  assert.match(html, /id="dispatch-form"/);
+  assert.match(html, /id="inventory-body"/);
+  assert.match(html, /id="activity-body"/);
+});

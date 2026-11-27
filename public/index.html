@@ -4,187 +4,229 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Warehouse Dashboard</title>
+    <meta name="description" content="Columbia Logistics warehouse stock desk: live inventory, orders, received shipments and plain-English dispatch." />
+    <meta name="theme-color" content="#13233A" />
+    <title>Columbia Logistics Warehouse</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!-- Barlow: one family for the whole interface -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" />
 
     <!-- Tailwind CSS, compiled locally by `npm run build:css` -->
     <link rel="stylesheet" href="/styles.css" />
   </head>
 
-  <body class="min-h-screen bg-slate-50 text-slate-800 antialiased">
-    <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+  <body class="min-h-screen bg-paper font-sans text-[15px] leading-normal text-ink antialiased">
+    <a href="#inventory" class="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:font-semibold">
+      Skip to inventory
+    </a>
 
-      <!-- Header -->
-      <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-semibold tracking-tight text-slate-900">
-            Warehouse Dashboard
+    <!-- Dock band: brand, refresh, dispatch console and stock summary -->
+    <header class="bg-ink text-white">
+      <div class="mx-auto max-w-6xl px-4 pb-6 pt-4 sm:px-6 sm:pb-8">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <svg class="h-8 w-8 shrink-0" viewBox="0 0 32 32" aria-hidden="true">
+              <rect width="32" height="32" rx="6" fill="#F2A900" />
+              <path d="M8 22V13l8-4 8 4v9" fill="none" stroke="#13233A" stroke-width="2.4" stroke-linejoin="round" />
+              <path d="M12 22v-5h8v5" fill="none" stroke="#13233A" stroke-width="2.4" stroke-linejoin="round" />
+            </svg>
+            <div class="leading-tight">
+              <p class="text-[15px] font-semibold">Columbia Logistics</p>
+              <p class="text-sm text-white/60">Warehouse stock desk</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <p id="last-updated" class="hidden text-sm text-white/60 sm:block" aria-live="polite"></p>
+            <button id="refresh-button" type="button"
+              class="btn border border-white/20 bg-white/5 px-3 text-white hover:bg-white/10 focus-visible:ring-offset-ink">
+              <svg id="refresh-icon" class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M16.5 10a6.5 6.5 0 1 1-1.9-4.6M16.5 3.5v3.8h-3.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- AI natural-language dispatch -->
+        <section aria-labelledby="dispatch-heading" class="mt-8 sm:mt-10">
+          <h1 id="dispatch-heading" class="text-2xl font-semibold tracking-tight sm:text-[28px]">
+            What moved in the warehouse?
           </h1>
-          <p class="mt-1 text-sm text-slate-500">
-            Columbia Logistics · live inventory
+          <p class="mt-1 max-w-2xl text-white/70">
+            Describe an order or a delivery in plain English. It's recorded just like a form entry.
           </p>
-        </div>
-        <button id="refresh-button" type="button"
-          class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          Refresh
-        </button>
-      </header>
-
-      <div id="banner" role="status" aria-live="polite"
-        class="mb-6 hidden items-start justify-between gap-4 rounded-lg border px-4 py-3 text-sm">
-        <p id="banner-message"></p>
-        <button id="banner-close" type="button" aria-label="Dismiss"
-          class="shrink-0 font-semibold opacity-60 hover:opacity-100">
-          ✕
-        </button>
-      </div>
-
-      <section class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Items tracked
-          </p>
-          <p id="stat-items" class="mt-1 text-2xl font-semibold text-slate-900">
-            –
-          </p>
-        </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Total units
-          </p>
-          <p id="stat-units" class="mt-1 text-2xl font-semibold text-slate-900">
-            –
-          </p>
-        </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Low stock
-          </p>
-          <p id="stat-low" class="mt-1 text-2xl font-semibold text-slate-900">
-            –
-          </p>
-        </div>
-      </section>
-
-      <!-- AI natural-language dispatch bar -->
-      <section class="mb-6 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-white p-4 shadow-sm">
-        <div class="mb-3">
-          <h2 class="text-sm font-semibold text-slate-900">AI Natural-Language Dispatch</h2>
-          <p class="mt-0.5 text-xs text-slate-500">
-            Type an order or restock in plain English and it runs as a regular transaction.
-          </p>
-        </div>
-        <form id="dispatch-form" class="flex flex-col gap-2 sm:flex-row" novalidate>
-          <label for="dispatch-input" class="sr-only">Dispatch note</label>
-          <input id="dispatch-input" name="prompt" type="text" maxlength="500" autocomplete="off"
-            placeholder='e.g. "Ship 4 bubble wrap to Columbia hub" or "Received 20 packing tape"'
-            class="block w-full flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <button id="dispatch-button" type="submit"
-            class="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
-            Execute AI Command
-          </button>
-        </form>
-        <div id="dispatch-badge" role="status" aria-live="polite"
-          class="mt-3 hidden flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-xs ring-1 ring-inset">
-        </div>
-      </section>
-
-      <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-
-
-        <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
-          <div class="border-b border-slate-200 px-4 py-3">
-            <h2 class="text-sm font-semibold text-slate-900">Inventory</h2>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
-              <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th scope="col" class="px-4 py-3">ID</th>
-                  <th scope="col" class="px-4 py-3">Item</th>
-                  <th scope="col" class="px-4 py-3 text-right">Stock</th>
-                  <th scope="col" class="px-4 py-3">Shelf</th>
-                  <th scope="col" class="px-4 py-3">Supplier</th>
-                </tr>
-              </thead>
-              <tbody id="inventory-body" class="divide-y divide-slate-100">
-                <tr>
-                  <td colspan="5" class="px-4 py-6 text-center text-slate-500">
-                    Loading inventory…
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Order / restock form -->
-        <section class="h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div role="tablist" aria-label="Form mode"
-            class="mb-4 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-sm font-medium">
-            <button id="mode-order" type="button" role="tab" data-mode="order"
-              class="mode-tab rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              Place an Order
-            </button>
-            <button id="mode-restock" type="button" role="tab" data-mode="restock"
-              class="mode-tab rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              Receive Shipment
-            </button>
-          </div>
-          <h2 id="form-title" class="mb-1 text-sm font-semibold text-slate-900">Place an order</h2>
-          <p id="form-hint" class="mb-4 text-xs text-slate-500">Deducts units from stock.</p>
-          <form id="order-form" class="space-y-4" novalidate>
-            <div>
-              <label for="item-select" class="mb-1 block text-sm font-medium text-slate-700">
-                Item
-              </label>
-              <select id="item-select" name="item_id" required
-                class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="">Loading items…</option>
-              </select>
+          <form id="dispatch-form" class="mt-4 flex flex-col gap-2 sm:flex-row" novalidate>
+            <label for="dispatch-input" class="sr-only">Dispatch note</label>
+            <div class="relative flex-1">
+              <input id="dispatch-input" name="prompt" type="text" maxlength="500" autocomplete="off" enterkeyhint="send"
+                placeholder="Ship 4 bubble wrap to Columbia hub"
+                class="block w-full rounded-md border-0 bg-white py-3 pl-4 pr-12 text-base text-ink shadow-sm placeholder:text-steel-light focus:outline-none focus:ring-2 focus:ring-signal" />
+              <kbd class="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-line px-1.5 text-xs font-semibold text-steel sm:block"
+                title="Press / to jump here">/</kbd>
             </div>
-            <div>
-              <label for="quantity-input" class="mb-1 block text-sm font-medium text-slate-700">
-                Quantity
-              </label>
-              <input id="quantity-input" name="quantity" type="number" min="1" step="1" value="1" required
-                class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            </div>
-            <button id="order-button" type="submit"
-              class="w-full rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
-              Submit order
+            <button id="dispatch-button" type="submit"
+              class="btn bg-signal px-5 py-3 text-base text-ink hover:bg-[#FFBA1A] focus-visible:ring-offset-ink">
+              Run dispatch
             </button>
           </form>
+          <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span class="text-white/60">Try</span>
+            <button type="button" class="dispatch-example rounded-full border border-white/20 px-3 py-1 text-white/85 transition-colors hover:border-white/40 hover:bg-white/5"
+              data-example="Ship 3 shipping labels to the Bronx store">Ship 3 shipping labels to the Bronx store</button>
+            <button type="button" class="dispatch-example rounded-full border border-white/20 px-3 py-1 text-white/85 transition-colors hover:border-white/40 hover:bg-white/5"
+              data-example="Received 20 cardboard boxes from Hudson">Received 20 cardboard boxes from Hudson</button>
+          </div>
+          <div id="dispatch-result" role="status" aria-live="polite" class="mt-4 hidden"></div>
+        </section>
+
+        <!-- Stock summary. The low-stock cell filters the inventory table. -->
+        <div class="mt-8 grid grid-cols-3 gap-px overflow-hidden rounded-md border border-white/10 bg-white/10 sm:mt-10">
+          <div class="bg-ink px-4 py-3">
+            <p class="text-sm text-white/60">Items</p>
+            <p id="stat-items" class="text-2xl font-semibold">–</p>
+          </div>
+          <div class="bg-ink px-4 py-3">
+            <p class="text-sm text-white/60">Units on hand</p>
+            <p id="stat-units" class="text-2xl font-semibold">–</p>
+          </div>
+          <button id="stat-low-button" type="button" title="Show only low-stock items"
+            class="bg-ink px-4 py-3 text-left transition-colors hover:bg-ink-800 focus-visible:outline-offset-[-2px]">
+            <span class="flex items-center gap-1.5 text-sm text-white/60">
+              Low stock
+              <span id="stat-low-dot" class="hidden h-2 w-2 rounded-full bg-signal" aria-hidden="true"></span>
+            </span>
+            <span id="stat-low" class="block text-2xl font-semibold">–</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+
+        <!-- Inventory -->
+        <section id="inventory" aria-labelledby="inventory-heading" class="panel overflow-hidden">
+          <div class="panel-head">
+            <h2 id="inventory-heading" class="panel-title">
+              Inventory <span id="inventory-count" class="ml-1 font-medium text-steel"></span>
+            </h2>
+            <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <div class="relative">
+                <label for="inventory-search" class="sr-only">Search inventory</label>
+                <svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-steel-light" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                  <circle cx="9" cy="9" r="5.5" />
+                  <path d="m13.5 13.5 3 3" stroke-linecap="round" />
+                </svg>
+                <input id="inventory-search" type="search" placeholder="Search item, shelf or supplier" autocomplete="off"
+                  class="field py-1.5 pl-8 text-sm sm:w-64" />
+              </div>
+              <div role="radiogroup" aria-label="Filter inventory" class="inline-flex rounded-md border border-line bg-paper p-0.5 text-sm font-medium">
+                <button type="button" role="radio" data-filter="all" class="filter-btn flex-1 whitespace-nowrap rounded px-3 py-1">All</button>
+                <button type="button" role="radio" data-filter="low" class="filter-btn flex-1 whitespace-nowrap rounded px-3 py-1">Low stock</button>
+              </div>
+            </div>
+          </div>
+
+          <table class="w-full text-left max-md:block">
+            <thead class="border-b border-line text-sm text-steel max-md:hidden">
+              <tr>
+                <th scope="col" class="w-16 px-5 py-2.5 font-medium">ID</th>
+                <th scope="col" class="px-3 py-2.5 font-medium">Item</th>
+                <th scope="col" class="px-3 py-2.5 text-right font-medium">Stock</th>
+                <th scope="col" class="px-3 py-2.5 font-medium">Shelf</th>
+                <th scope="col" class="px-3 py-2.5 font-medium">Supplier</th>
+                <th scope="col" class="px-5 py-2.5 text-right font-medium"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="inventory-body" class="divide-y divide-line-soft max-md:block"></tbody>
+          </table>
+          <p class="border-t border-line-soft px-4 py-2.5 text-sm text-steel sm:px-5">
+            Items with fewer than <span id="low-threshold">5</span> units are flagged as low stock.
+          </p>
+        </section>
+
+        <!-- Order / receive form -->
+        <section id="movement" aria-labelledby="movement-heading" class="panel lg:sticky lg:top-6">
+          <div class="border-b border-line px-4 py-3 sm:px-5">
+            <h2 id="movement-heading" class="panel-title">Record a movement</h2>
+          </div>
+          <div class="p-4 sm:p-5">
+            <div role="tablist" aria-label="Movement type"
+              class="grid grid-cols-2 gap-1 rounded-md border border-line bg-paper p-1 text-[15px] font-semibold md:max-lg:max-w-md">
+              <button id="mode-order" type="button" role="tab" data-mode="order" aria-controls="order-form"
+                class="mode-tab rounded px-3 py-2 transition-colors">
+                Place order
+              </button>
+              <button id="mode-restock" type="button" role="tab" data-mode="restock" aria-controls="order-form"
+                class="mode-tab rounded px-3 py-2 transition-colors">
+                Receive shipment
+              </button>
+            </div>
+            <p id="form-hint" class="mt-3 text-pretty text-sm text-steel">Takes units off stock as they leave the warehouse.</p>
+
+            <form id="order-form" role="tabpanel" class="mt-4 grid gap-4 md:max-lg:grid-cols-[minmax(0,1fr)_220px]" novalidate>
+              <div>
+                <label for="item-select" class="field-label">Item</label>
+                <select id="item-select" name="item_id" required aria-describedby="item-error" class="field">
+                  <option value="">Loading items…</option>
+                </select>
+                <p id="item-error" class="field-error hidden"></p>
+              </div>
+              <div>
+                <div class="flex items-baseline justify-between">
+                  <label for="quantity-input" class="field-label">Quantity</label>
+                  <span id="quantity-hint" class="text-sm text-steel"></span>
+                </div>
+                <div class="flex">
+                  <button type="button" id="qty-dec" aria-label="Decrease quantity"
+                    class="rounded-l-md border border-r-0 border-line bg-paper px-3 text-lg font-semibold text-steel hover:text-ink">−</button>
+                  <input id="quantity-input" name="quantity" type="number" inputmode="numeric" min="1" step="1" value="1" required
+                    aria-describedby="quantity-hint quantity-error"
+                    class="field rounded-none text-center" />
+                  <button type="button" id="qty-inc" aria-label="Increase quantity"
+                    class="rounded-r-md border border-l-0 border-line bg-paper px-3 text-lg font-semibold text-steel hover:text-ink">+</button>
+                </div>
+                <p id="quantity-error" class="field-error hidden"></p>
+              </div>
+              <button id="order-button" type="submit" class="btn w-full py-2.5 text-white md:max-lg:col-span-2">
+                Place order
+              </button>
+            </form>
+          </div>
         </section>
       </div>
 
-      <!-- Recent activity log -->
-      <section class="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-200 px-4 py-3">
-          <h2 class="text-sm font-semibold text-slate-900">Recent Activity Log</h2>
-          <p class="mt-0.5 text-xs text-slate-500">Last 10 orders and restocks</p>
+      <!-- Recent activity -->
+      <section aria-labelledby="activity-heading" class="panel mt-6 overflow-hidden">
+        <div class="panel-head">
+          <h2 id="activity-heading" class="panel-title">Recent activity</h2>
+          <p class="text-sm text-steel">Last 10 orders and received shipments</p>
         </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th scope="col" class="px-4 py-3">Time</th>
-                <th scope="col" class="px-4 py-3">Type</th>
-                <th scope="col" class="px-4 py-3">Item</th>
-                <th scope="col" class="px-4 py-3 text-right">Quantity</th>
-              </tr>
-            </thead>
-            <tbody id="activity-body" class="divide-y divide-slate-100">
-              <tr>
-                <td colspan="4" class="px-4 py-6 text-center text-slate-500">
-                  Loading activity…
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <table class="w-full text-left max-md:block">
+          <thead class="border-b border-line text-sm text-steel max-md:hidden">
+            <tr>
+              <th scope="col" class="w-48 px-5 py-2.5 font-medium">Time</th>
+              <th scope="col" class="w-36 px-3 py-2.5 font-medium">Type</th>
+              <th scope="col" class="px-3 py-2.5 font-medium">Item</th>
+              <th scope="col" class="px-5 py-2.5 text-right font-medium">Quantity</th>
+            </tr>
+          </thead>
+          <tbody id="activity-body" class="divide-y divide-line-soft max-md:block"></tbody>
+        </table>
       </section>
-    </div>
+
+      <footer class="mt-8 flex flex-wrap justify-between gap-2 text-sm text-steel">
+        <p>Columbia Logistics warehouse system</p>
+        <p class="hidden sm:block">Press <kbd class="rounded border border-line bg-white px-1.5 font-semibold">/</kbd> to write a dispatch note</p>
+      </footer>
+    </main>
+
+    <!-- Toast notifications -->
+    <div id="toast-region" aria-live="polite" aria-atomic="false"
+      class="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 p-4 sm:items-end sm:p-6"></div>
 
     <!-- Dashboard logic: public/js/main.js imports the other modules -->
     <script type="module" src="/js/main.js"></script>

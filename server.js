@@ -34,6 +34,17 @@ app.use(express.json());
 // works no matter which directory the server is started from.
 app.use(express.static(path.join(__dirname, "public")));
 
+// Health check for the hosting platform (Render pings this to know the app is up).
+app.get("/api/health", (_req, res) => {
+  try {
+    db.prepare("SELECT 1").get();
+    res.json({ status: "ok" });
+  } catch (error) {
+    console.error(`Error: Health check failed. ${error.message}`);
+    res.status(503).json({ status: "error" });
+  }
+});
+
 const allInventoryQuery = db.prepare(`
   SELECT
     inventory.item_id,

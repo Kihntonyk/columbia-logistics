@@ -1,120 +1,138 @@
-// --- AI natural-language dispatch bar ---
-// Sends a free-text note to /api/ai-dispatch and shows how the server
-// interpreted it in the badge under the input.
+// --- AI natural-language dispatch ---
+// Sends a free-text note to /api/ai-dispatch and shows, under the input, how the
+// server understood it and whether it was recorded.
 
-import { dispatchForm, dispatchInput, dispatchButton, dispatchBadge } from "./elements.js";
+import { dispatchForm, dispatchInput, dispatchButton, dispatchResult, dispatchExamples } from "./elements.js";
 import { postAiDispatch } from "./api.js";
-import { showBanner } from "./banner.js";
+import { showToast } from "./toast.js";
 
-const BADGE_BASE_CLASS =
-  "mt-3 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-xs ring-1 ring-inset";
-const BADGE_STYLES = {
-  success: "bg-white text-slate-700 ring-slate-200",
-  error: "bg-red-50 text-red-800 ring-red-200",
-  pending: "bg-white text-slate-500 ring-slate-200",
-};
-const ACTION_PILL_STYLES = {
-  ORDER: "bg-indigo-100 text-indigo-700",
-  RESTOCK: "bg-emerald-100 text-emerald-700",
-};
 const BUTTON_LABEL = dispatchButton.textContent.trim();
+const ACTION_TAGS = {
+  ORDER: { text: "Order", className: "tag-out" },
+  RESTOCK: { text: "Received", className: "tag-in" },
+};
 
-function pill(text, className) {
-  const span = document.createElement("span");
-  span.className = `inline-flex items-center rounded-full px-2 py-0.5 font-semibold ${className}`;
-  span.textContent = text;
-  return span;
+function el(tag, className = "", text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
-function text(value, className = "") {
-  const span = document.createElement("span");
-  span.className = className;
-  span.textContent = value;
-  return span;
+// state: "pending" | "success" | "error"
+function showResult(state, children) {
+  const tone = {
+    pending: "border-white/15 text-white/70",
+    success: "border-in/60 text-white",
+    error: "border-danger/70 text-white",
+  }[state];
+  dispatchResult.className = `mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border bg-white/5 px-4 py-3 text-[15px] ${tone}`;
+  dispatchResult.replaceChildren(...children);
 }
 
-function parserLabel(interpretation) {
-  return interpretation.parser === "claude"
-    ? `Parsed by Claude (${interpretation.model})`
-    : "Parsed locally";
+function parserNote(interpretation) {
+  const label =
+    interpretation.parser === "claude" ? `Read by Claude (${interpretation.model})` : "Read by the built-in parser";
+  return el("span", "text-sm text-white/50", label);
 }
 
-function setBadge(state, children) {
-  dispatchBadge.className = `${BADGE_BASE_CLASS} ${BADGE_STYLES[state]}`;
-  dispatchBadge.replaceChildren(...children);
-}
-
-// Builds "ORDER · 4 × Bubble Wrap (#103)" from whatever fields were understood.
-function describeInterpretation(interpretation) {
+// The "Order  4 × Bubble Wrap (#103)" summary of what the note was understood as.
+function interpretationParts(interpretation) {
   const parts = [];
-  if (interpretation.action) {
-    parts.push(pill(interpretation.action, ACTION_PILL_STYLES[interpretation.action] ?? "bg-slate-100 text-slate-700"));
-  }
+  const tag = ACTION_TAGS[interpretation.action];
+  if (tag) parts.push(el("span", tag.className, tag.text));
   const quantity = interpretation.quantity ?? "?";
-  const item = interpretation.item_name
-    ? `${interpretation.item_name} (#${interpretation.item_id})`
-    : "unknown item";
-  parts.push(text(`${quantity} × ${item}`, "font-medium"));
-  parts.push(text(`· ${parserLabel(interpretation)}`, "text-slate-400"));
-  if (interpretation.notice) parts.push(text(`· ${interpretation.notice}`, "text-amber-700"));
+  const item = interpretation.item_name ? `${interpretation.item_name} (#${interpretation.item_id})` : "unknown item";
+  parts.push(el("span", "font-semibold", `${quantity} × ${item}`));
   return parts;
 }
 
-function showResult(ok, data, status) {
+function renderOutcome(ok, data, status) {
   const interpretation = data.interpretation;
 
   if (ok) {
     const r = data.result;
     const outcome =
       interpretation.action === "ORDER"
-        ? `${r.remaining_stock} remaining`
-        : `${r.new_stock} now in stock`;
-    setBadge("success", [
-      text("Interpreted as", "text-slate-500"),
-      ...describeInterpretation(interpretation),
-      text(`· Executed, ${outcome}`, "font-medium text-emerald-700"),
-    ]);
-    showBanner("success", `AI dispatch: ${data.message}.`);
-    return;
+        ? `${r.remaining_stock.toLocaleString()} left in stock`
+        : `${r.new_stock.toLocaleString()} now in stock`;
+    const parts = [...interpretationParts(interpretation), el("span", "text-white/80", `Recorded. ${outcome}.`)];
+    if (interpretation.notice) parts.push(el("span", "text-sm text-signal", interpretation.notice));
+    parts.push(parserNote(interpretation));
+    showResult("success", parts);
+    showToast(
+      "success",
+      interpretation.action === "ORDER" ? "Order placed" : "Shipment received",
+      `${interpretation.quantity} × ${interpretation.item_name}. ${outcome}.`,
+    );
+    return r.item_id;
   }
 
-  let message = data.error || `Request failed (HTTP ${status}).`;
+  let message = data.error || `The server returned an error (HTTP ${status}).`;
   if (data.error === "Insufficient stock") {
-    message = `Insufficient stock: requested ${data.requested}, only ${data.available} available.`;
+    message = `Only ${data.available} in stock, so ${data.requested} can't be shipped.`;
   }
-  setBadge("error", [
-    ...(interpretation ? [text("Interpreted as", "text-red-700"), ...describeInterpretation(interpretation)] : []),
-    text(`· Not executed: ${message}`, "font-medium"),
-  ]);
+  // The server prefixes parse failures with this; the heading already says it.
+  message = message.replace(/^Could not understand the note\.\s*/, "");
+
+  const parts = [el("span", "font-semibold text-[#FF9C92]", "Not recorded.")];
+  if (interpretation?.action || interpretation?.item_name) parts.push(...interpretationParts(interpretation));
+  parts.push(el("span", "basis-full text-white/80", message));
+  showResult("error", parts);
+  return null;
 }
 
 async function handleSubmit(event, onSubmitted) {
   event.preventDefault();
   const prompt = dispatchInput.value.trim();
   if (!prompt) {
-    setBadge("error", [text("Type a dispatch note first.", "font-medium")]);
+    showResult("error", [
+      el("span", "text-white/80", "Write a note first, for example “Ship 4 bubble wrap to Columbia hub”."),
+    ]);
+    dispatchInput.focus();
     return;
   }
 
   dispatchButton.disabled = true;
-  dispatchButton.textContent = "Interpreting…";
-  setBadge("pending", [text("Interpreting note…")]);
+  dispatchButton.innerHTML = `<span class="spinner" aria-hidden="true"></span>`;
+  dispatchButton.append("Reading note…");
+  showResult("pending", [el("span", "", `Reading “${prompt}”…`)]);
 
+  let changedItemId = null;
   try {
     const { ok, status, data } = await postAiDispatch(prompt);
-    showResult(ok, data, status);
+    changedItemId = renderOutcome(ok, data, status);
     if (ok) dispatchInput.value = "";
   } catch (error) {
     console.error("AI dispatch request failed:", error);
-    setBadge("error", [text("Could not reach the server. Please try again.", "font-medium")]);
+    showResult("error", [
+      el("span", "font-semibold text-[#FF9C92]", "Not recorded."),
+      el("span", "text-white/80", "Can't reach the server. Check your connection and try again."),
+    ]);
   } finally {
     dispatchButton.disabled = false;
     dispatchButton.textContent = BUTTON_LABEL;
-    onSubmitted();
+    onSubmitted({ itemId: changedItemId });
   }
 }
 
-// onSubmitted runs after every command, so the page can reload its data.
+// onSubmitted({ itemId }) runs after every note, so the page can reload its data.
 export function initDispatch({ onSubmitted }) {
   dispatchForm.addEventListener("submit", (event) => handleSubmit(event, onSubmitted));
+
+  for (const example of dispatchExamples) {
+    example.addEventListener("click", () => {
+      dispatchInput.value = example.dataset.example;
+      dispatchInput.focus();
+    });
+  }
+
+  // "/" jumps to the dispatch input from anywhere except another text field.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+    const target = event.target;
+    if (target.closest("input, textarea, select, [contenteditable]")) return;
+    event.preventDefault();
+    dispatchInput.focus();
+  });
 }

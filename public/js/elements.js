@@ -17,3 +17,7 @@ export const activityBody = document.getElementById("activity-body");
 export const formTitle = document.getElementById("form-title");
 export const formHint = document.getElementById("form-hint");
 export const modeTabs = document.querySelectorAll(".mode-tab");
+export const dispatchForm = document.getElementById("dispatch-form");
+export const dispatchInput = document.getElementById("dispatch-input");
+export const dispatchButton = document.getElementById("dispatch-button");
+export const dispatchBadge = document.getElementById("dispatch-badge");

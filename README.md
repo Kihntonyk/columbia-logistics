@@ -5,6 +5,7 @@ A full-stack warehouse management app for tracking stock, placing orders and rec
 - **Atomic transactions.** Every order and restock runs inside a single database transaction. The stock check, the stock update and the audit-log entry are saved together or not at all, so stock can never go negative and the history always matches the stock levels.
 - **Relational data modeling.** Suppliers, inventory and transactions live in separate tables linked by foreign keys, and the API reads them back with `INNER JOIN` queries.
 - **Real-time inventory tracking.** The dashboard reloads stock levels after every order or shipment, flags items below 5 units with a **Low Stock** badge, and shows the 10 most recent stock movements in an activity log.
+- **AI Natural-Language Dispatch Bar.** Type a note like "Ship 4 bubble wrap to Columbia hub" and it runs as a regular order or restock. A two-tier parser uses Claude when an API key is set and falls back to a deterministic local keyword parser otherwise, so the feature works offline too.
 
 ## System Architecture
 
@@ -13,6 +14,7 @@ A full-stack warehouse management app for tracking stock, placing orders and rec
 │  FRONTEND  ·  public/index.html + public/js/*.js             │
 │  Tailwind CSS + Vanilla JavaScript modules (fetch API)       │
 │                                                              │
+│  • AI Natural-Language Dispatch Bar                          │
 │  • Inventory table with Low Stock badges                     │
 │  • Place Order / Receive Shipment form                       │
 │  • Recent Activity Log                                       │
@@ -25,8 +27,10 @@ A full-stack warehouse management app for tracking stock, placing orders and rec
 │                                                              │
 │  GET  /api/inventory      POST /api/order                    │
 │  GET  /api/low-stock      POST /api/restock                  │
-│  GET  /api/transactions                                      │
+│  GET  /api/transactions   POST /api/ai-dispatch              │
 │                                                              │
+│  AI dispatch: note → Claude (if key set) or local parser     │
+│               → validated { action, item_id, quantity }      │
 │  Orders and restocks run inside db.transaction():            │
 │  check stock → update stock → write audit log → commit       │
 └──────────────────────────────┬───────────────────────────────┘
@@ -79,6 +83,7 @@ All endpoints accept and return JSON.
 | `GET` | `/api/transactions` | Returns the 10 most recent stock movements (orders and restocks), newest first, with item names. |
 | `POST` | `/api/order` | Places an order and removes the units from stock. Rejected if there isn't enough stock. |
 | `POST` | `/api/restock` | Receives a shipment and adds the units to stock. |
+| `POST` | `/api/ai-dispatch` | Interprets a plain-English note (e.g. `"Ship 4 bubble wrap"`) as an order or restock and runs it. |
 
 ### Request body for `POST /api/order` and `POST /api/restock`
 
@@ -101,6 +106,33 @@ Example: an order that asks for more stock than is available.
 
 ```json
 { "error": "Insufficient stock", "item_id": 102, "requested": 50, "available": 1 }
+```
+
+### AI Natural-Language Dispatch Bar (`POST /api/ai-dispatch`)
+
+The dashboard's dispatch bar sends the typed note to this endpoint and shows a badge with what was understood (action, item, quantity, and which parser was used).
+
+Request body:
+
+```json
+{ "prompt": "Received 20 packing tape" }
+```
+
+The note is turned into `{ "action": "ORDER" | "RESTOCK", "item_id", "quantity" }` and then runs the same database transaction as `/api/order` or `/api/restock`. The response includes an `interpretation` object that shows what was understood and which parser was used.
+
+Parsing uses a dual-tier architecture:
+
+1. **LLM tier.** **With `ANTHROPIC_API_KEY` set**, the note is sent to Claude (`claude-haiku-4-5`) together with the inventory list. If the Claude API can't be reached, the server falls back to the local parser and adds a `notice` to the interpretation.
+2. **Deterministic fallback tier.** **Without a key** (or when the LLM call fails or times out after 15 seconds), a local parser matches the item by name or ID, reads the quantity, and looks for keywords: "received", "restock", "arrived" or "added" mean RESTOCK, and "ship", "order", "send" or "deduct" mean ORDER.
+
+Whichever tier answers, the result is validated on the server (known action, existing item, positive whole-number quantity) before any stock is touched, so a wrong or malformed LLM reply can never change the database.
+
+The endpoint returns `400` when the note can't be understood (no item, no action, or more than one possible quantity) or when an order asks for more stock than is available. Nothing is changed in either case.
+
+To enable Claude, start the server with the key set:
+
+```bash
+ANTHROPIC_API_KEY=your-key npm start
 ```
 
 ## Local Setup & Installation
@@ -186,6 +218,8 @@ The suite covers:
 - `POST /api/order` rejects an order larger than the stock on hand with `400` and leaves stock unchanged
 - `POST /api/order` returns `404` for an `item_id` that doesn't exist
 - `POST /api/restock` increases stock and logs a `RESTOCK` transaction
+- `POST /api/ai-dispatch` executes a natural-language restock note
+- `POST /api/ai-dispatch` rejects a note it can't understand with `400` and changes nothing
 
 ## Project Structure
 
@@ -201,6 +235,7 @@ columbia-logistics/
 │   │   ├── api.js         fetch calls to the REST API
 │   │   ├── render.js      Builds the inventory table, dropdown, stats and activity log
 │   │   ├── form.js        Order / restock form: modes and submission
+│   │   ├── dispatch.js    AI Natural-Language Dispatch Bar: sends notes, shows the interpretation badge
 │   │   ├── banner.js      Success and error messages
 │   │   └── elements.js    Shared references to page elements
 │   └── styles.css     Compiled Tailwind stylesheet (generated by npm run build:css, not committed)

@@ -8,6 +8,8 @@ const assert = require("node:assert/strict");
 
 // Must be set before server.js is required: it reads DB_PATH at load time.
 process.env.DB_PATH = ":memory:";
+// Force /api/ai-dispatch onto the local parser so tests never call the Claude API.
+delete process.env.ANTHROPIC_API_KEY;
 const { app, db } = require("./server");
 
 let server;
@@ -146,4 +148,47 @@ test("POST /api/restock increases stock and logs a RESTOCK transaction", async (
     type: "RESTOCK",
     quantity: 20,
   });
+});
+
+test("POST /api/ai-dispatch executes a natural-language restock note", async () => {
+  // Item 102 (Packing Tape) is matched by name; "Received" means RESTOCK.
+  const stockBefore = getStock(102);
+
+  const { status, body } = await postJson("/api/ai-dispatch", {
+    prompt: "Received 20 packing tape",
+  });
+
+  assert.equal(status, 200);
+  assert.deepEqual(
+    {
+      action: body.interpretation.action,
+      item_id: body.interpretation.item_id,
+      quantity: body.interpretation.quantity,
+      parser: body.interpretation.parser,
+    },
+    { action: "RESTOCK", item_id: 102, quantity: 20, parser: "local" },
+  );
+  assert.equal(body.result.new_stock, stockBefore + 20);
+  assert.equal(getStock(102), stockBefore + 20);
+  assert.deepEqual(getLatestTransaction(102), {
+    type: "RESTOCK",
+    quantity: 20,
+  });
+});
+
+test("POST /api/ai-dispatch rejects an unparseable note with 400 and changes nothing", async () => {
+  const inventoryBefore = db.prepare("SELECT item_id, stock_count FROM inventory").all();
+  const transactionsBefore = countTransactions();
+
+  const { status, body } = await postJson("/api/ai-dispatch", {
+    prompt: "What's the weather like at the Columbia hub today?",
+  });
+
+  assert.equal(status, 400);
+  assert.match(body.error, /Could not understand the note/);
+  assert.deepEqual(
+    db.prepare("SELECT item_id, stock_count FROM inventory").all(),
+    inventoryBefore,
+  );
+  assert.equal(countTransactions(), transactionsBefore);
 });

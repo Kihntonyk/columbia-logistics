@@ -65,6 +65,29 @@
         </div>
       </section>
 
+      <!-- AI natural-language dispatch bar -->
+      <section class="mb-6 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-white p-4 shadow-sm">
+        <div class="mb-3">
+          <h2 class="text-sm font-semibold text-slate-900">AI Natural-Language Dispatch</h2>
+          <p class="mt-0.5 text-xs text-slate-500">
+            Type an order or restock in plain English and it runs as a regular transaction.
+          </p>
+        </div>
+        <form id="dispatch-form" class="flex flex-col gap-2 sm:flex-row" novalidate>
+          <label for="dispatch-input" class="sr-only">Dispatch note</label>
+          <input id="dispatch-input" name="prompt" type="text" maxlength="500" autocomplete="off"
+            placeholder='e.g. "Ship 4 bubble wrap to Columbia hub" or "Received 20 packing tape"'
+            class="block w-full flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <button id="dispatch-button" type="submit"
+            class="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
+            Execute AI Command
+          </button>
+        </form>
+        <div id="dispatch-badge" role="status" aria-live="polite"
+          class="mt-3 hidden flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-xs ring-1 ring-inset">
+        </div>
+      </section>
+
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
 

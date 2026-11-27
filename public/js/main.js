@@ -13,6 +13,7 @@ import {
   renderActivityMessage,
 } from "./render.js";
 import { initForm } from "./form.js";
+import { initDispatch } from "./dispatch.js";
 
 // --- Data loading ---
 
@@ -47,5 +48,6 @@ function refreshAll() {
 
 initBanner();
 initForm({ onSubmitted: refreshAll });
+initDispatch({ onSubmitted: refreshAll });
 refreshButton.addEventListener("click", refreshAll);
 refreshAll();

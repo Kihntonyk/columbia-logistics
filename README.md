@@ -1,5 +1,10 @@
 # Columbia Logistics — Inventory & Order Management System
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-columbia--logistics.onrender.com-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://columbia-logistics.onrender.com/)
+
+> **[Try the live demo →](https://columbia-logistics.onrender.com/)**
+> Hosted on Render's free tier, so the first load can take about 30 seconds while the server wakes up.
+
 A full-stack warehouse management app for tracking stock, placing orders and receiving shipments, built on a relational SQLite database with a REST API and a live web dashboard.
 
 - **Atomic transactions.** Every order and restock runs inside a single database transaction. The stock check, the stock update and the audit-log entry are saved together or not at all, so stock can never go negative and the history always matches the stock levels.

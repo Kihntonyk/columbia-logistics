@@ -169,6 +169,24 @@ curl -X POST http://localhost:3000/api/order \
   -d '{"item_id": 101, "quantity": 2}'
 ```
 
+### Running Automated Tests
+
+The integration tests in `server.test.js` use Node's built-in test runner (`node:test`), so there's nothing extra to install. Run them with:
+
+```bash
+npm test
+```
+
+You don't need to run `node seed.js` or stop a running server first. The tests set `DB_PATH=":memory:"` before loading `server.js`, so each run gets its own fresh in-memory SQLite database seeded by `seedDatabase()` from `seed.js`. Your `warehouse.db` is never read or changed. The test server listens on a port the OS picks, so it doesn't clash with a dev server on port 3000.
+
+The suite covers:
+
+- `GET /api/inventory` returns the seeded items with their supplier names
+- `POST /api/order` deducts stock and logs an `ORDER` transaction
+- `POST /api/order` rejects an order larger than the stock on hand with `400` and leaves stock unchanged
+- `POST /api/order` returns `404` for an `item_id` that doesn't exist
+- `POST /api/restock` increases stock and logs a `RESTOCK` transaction
+
 ## Project Structure
 
 ```

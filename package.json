@@ -4,7 +4,7 @@
   "description": "",
   "main": "inventory.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "build:css": "tailwindcss -i ./styles/input.css -o ./public/styles.css --minify",
     "watch:css": "tailwindcss -i ./styles/input.css -o ./public/styles.css --watch",
     "prestart": "npm run build:css",

@@ -1,16 +1,22 @@
 const path = require("path");
 const express = require("express");
 const Database = require("better-sqlite3");
+const { seedDatabase } = require("./seed");
 
 const PORT = 3000;
-const dbPath = path.join(__dirname, "warehouse.db");
+// DB_PATH lets tests point the server at a throwaway database (e.g. ":memory:").
+const dbPath = process.env.DB_PATH || path.join(__dirname, "warehouse.db");
+const isInMemory = dbPath === ":memory:";
 
 // --- Database connection ---
 let db;
 try {
-  // fileMustExist prevents silently creating an empty DB if seed.js hasn't been run.
-  db = new Database(dbPath, { fileMustExist: true });
+  // fileMustExist prevents silently creating an empty DB if seed.js hasn't been
+  // run. It doesn't apply to an in-memory DB, which always starts empty.
+  db = new Database(dbPath, { fileMustExist: !isInMemory });
   db.pragma("foreign_keys = ON");
+  // An in-memory DB has no tables yet, so create and seed them here.
+  if (isInMemory) seedDatabase(db);
   console.log(`Connected to SQLite database at ${dbPath}`);
 } catch (error) {
   console.error(
@@ -238,29 +244,35 @@ app.get("/api/transactions", (_req, res) => {
   }
 });
 
-// --- Listener ---
-let server;
-try {
-  server = app.listen(PORT, (error) => {
-    if (error) {
-      console.error(`Error: Server failed to start. ${error.message}`);
-      db.close();
-      process.exit(1);
-    }
-    console.log(`Warehouse API listening on http://localhost:${PORT}`);
-  });
-} catch (error) {
-  console.error(`Error: Failed to initialize server. ${error.message}`);
-  db.close();
-  process.exit(1);
-}
+module.exports = { app, db };
 
-// --- Graceful shutdown ---
-function shutdown() {
-  server.close(() => {
+// --- Listener ---
+// Only listen when run directly (`node server.js`). When required by tests,
+// the caller starts its own listener, so port 3000 is never claimed.
+if (require.main === module) {
+  let server;
+  try {
+    server = app.listen(PORT, (error) => {
+      if (error) {
+        console.error(`Error: Server failed to start. ${error.message}`);
+        db.close();
+        process.exit(1);
+      }
+      console.log(`Warehouse API listening on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error(`Error: Failed to initialize server. ${error.message}`);
     db.close();
-    process.exit(0);
-  });
+    process.exit(1);
+  }
+
+  // --- Graceful shutdown ---
+  function shutdown() {
+    server.close(() => {
+      db.close();
+      process.exit(0);
+    });
+  }
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
